@@ -19,17 +19,27 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.withStyle
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import com.example.data.model.*
 import com.example.ui.components.*
 import com.example.ui.theme.*
@@ -67,19 +77,21 @@ fun ProjectWorkspaceScreen(
         "Product Overview" to Icons.Default.RocketLaunch,
         "Engineering Health" to Icons.Default.HealthAndSafety,
         "Strategic Roadmap" to Icons.Default.Map,
+        "Code Lab" to Icons.Default.Code,
+        "Build Studio" to Icons.Default.Terminal,
         "Requirements" to Icons.Default.Gavel,
         "UI/UX Design" to Icons.Default.DesignServices,
         "Technical Architecture" to Icons.Default.AccountTree,
         "Database Studio" to Icons.Default.Storage,
         "API Studio" to Icons.Default.Http,
         "Project Structure" to Icons.Default.FolderOpen,
-        "Code Specification" to Icons.Default.Code,
         "Environment & Secrets" to Icons.Default.Key,
         "Quality & Security" to Icons.Default.VerifiedUser,
         "Scale & Cost" to Icons.Default.Assessment,
         "Deployment Center" to Icons.Default.CloudUpload,
         "Integrations" to Icons.Default.IntegrationInstructions,
-        "Master Prompt" to Icons.Default.AutoAwesome
+        "Master Prompt" to Icons.Default.AutoAwesome,
+        "User Roles" to Icons.Default.Group
     )
 
     if (project == null) {
@@ -182,137 +194,143 @@ fun ProjectWorkspaceScreen(
             FactoryStatusBar(currentProject)
         }
     ) { innerPadding ->
-        Row(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-            // Sidebar Navigation (Left)
-            Surface(
-                modifier = Modifier.width(260.dp).fillMaxHeight().drawBehind {
-                    drawLine(
-                        color = CardBorderDark,
-                        start = Offset(size.width, 0f),
-                        end = Offset(size.width, size.height),
-                        strokeWidth = 1.dp.toPx()
+        Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+            // Horizontal Navigation Tabs (Top Bar)
+            ScrollableTabRow(
+                selectedTabIndex = selectedTabIdx,
+                edgePadding = 16.dp,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = IndigoPrimary,
+                indicator = { tabPositions ->
+                    TabRowDefaults.SecondaryIndicator(
+                        modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIdx]),
+                        color = CyanAccent
                     )
                 },
-                color = MaterialTheme.colorScheme.surface
+                divider = {}
             ) {
-                Column {
-                    Text(
-                        "WORKSPACE", 
-                        style = MaterialTheme.typography.labelSmall, 
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        letterSpacing = 1.sp
+                tabs.forEachIndexed { index, (label, icon) ->
+                    Tab(
+                        selected = selectedTabIdx == index,
+                        onClick = { selectedTabIdx = index },
+                        text = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                        icon = { Icon(icon, null, modifier = Modifier.size(18.dp)) },
+                        selectedContentColor = CyanAccent,
+                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    
-                    LazyColumn(modifier = Modifier.weight(1f)) {
-                        itemsIndexed(tabs) { idx, (label, icon) ->
-                            SidebarItem(
-                                label = label,
-                                icon = icon,
-                                isSelected = selectedTabIdx == idx,
-                                onClick = { selectedTabIdx = idx }
-                            )
-                        }
-                    }
                 }
             }
 
-            // Main Content Area (Center)
-            Box(modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.background)) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // Internal Workspace Header
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text(tabs[selectedTabIdx].first, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
-                            Text("Factory Stage: Architectural Blueprinting", style = MaterialTheme.typography.labelSmall, color = CyanAccent)
+            Row(modifier = Modifier.weight(1f)) {
+                // Main Content Area (Center)
+                Box(modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.background)) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Internal Workspace Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(tabs[selectedTabIdx].first, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                                Text("Factory Stage: Architectural Blueprinting", style = MaterialTheme.typography.labelSmall, color = CyanAccent)
+                            }
+                            
+                            // Workspace Actions
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (selectedTabIdx == 10 || selectedTabIdx == 11) { // Database or API
+                                    OutlinedButton(onClick = {}, shape = RoundedCornerShape(8.dp)) {
+                                        Icon(Icons.Default.Terminal, contentDescription = null, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("SQL/Specs")
+                                    }
+                                }
+                            }
                         }
                         
-                        // Workspace Actions
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (selectedTabIdx == 10 || selectedTabIdx == 11) { // Database or API
-                                OutlinedButton(onClick = {}, shape = RoundedCornerShape(8.dp)) {
-                                    Icon(Icons.Default.Terminal, contentDescription = null, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("SQL/Specs")
+                        Surface(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                            color = Color.Transparent
+                        ) {
+                            androidx.compose.animation.Crossfade(targetState = selectedTabIdx, label = "workspace_tab_crossfade") { idx ->
+                                when (idx) {
+                                    0 -> OverviewTabContent(
+                                        p = currentProject,
+                                        onUpdateTags = { viewModel.updateProjectTags(it) },
+                                        onRegenerateSummary = { viewModel.regenerateExecutiveSummary(currentProject) }
+                                    )
+                                    1 -> HealthDashboardTabContent(
+                                        p = currentProject,
+                                        onRunAudit = { viewModel.runHealthAudit() },
+                                        onRunBugHunter = { viewModel.runBugHunter() }
+                                    )
+                                    2 -> RoadmapTabContent(
+                                        roadmap = currentProject.projectRoadmap,
+                                        onGenerate = { viewModel.generateRoadmap() }
+                                    )
+                                    3 -> CodeLabTabContent(
+                                        p = currentProject,
+                                        initialSelectedFile = selectedFileSpec,
+                                        onFileSelected = { selectedFileSpec = it },
+                                        onGenerateCode = { viewModel.generateFileCode(it) },
+                                        onSaveCode = { path, content -> viewModel.updateFileContent(path, content) }
+                                    )
+                                    4 -> BuildStudioTabContent(
+                                        p = currentProject,
+                                        onRunBuild = { viewModel.runBuildSimulation() }
+                                    )
+                                    5 -> RequirementsTabContent(currentProject.requirements)
+                                    6 -> ScreenBuilderTabContent(currentProject.uxArchitecture, currentProject.designSystem)
+                                    7 -> ArchitectureTabContent(currentProject.systemArchitecture, currentProject.techStack)
+                                    8 -> DatabaseTabContent(currentProject.databaseSchema)
+                                    9 -> ApiDesignTabContent(currentProject.apiDesign)
+                                    10 -> DirectoryTabContent(currentProject.directoryTree, currentProject.fileSpecifications) { spec ->
+                                        selectedFileSpec = spec
+                                        selectedTabIdx = 3 // Switch to Code Lab when clicking a file
+                                    }
+                                    11 -> EnvironmentTabContent(currentProject.environmentVariables)
+                                    12 -> SecurityTabContent(currentProject.securityPlan, currentProject.qualityReport, onAutoFix = { viewModel.autoFixInconsistencies() })
+                                    13 -> ScaleAndCostTabContent(currentProject.scalabilityPlan, currentProject.costEstimates, currentProject.costComplexity)
+                                    14 -> DeploymentTabContent(currentProject.deploymentPlan, currentProject.buildPlan)
+                                    15 -> IntegrationsTabContent(currentProject.integrations)
+                                    16 -> MasterPromptTabContent(currentProject)
+                                    17 -> UserRolesTabContent(currentProject.userRoles)
                                 }
                             }
                         }
                     }
-                    
-                    Surface(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
-                        color = Color.Transparent
-                    ) {
-                        when (selectedTabIdx) {
-                            0 -> OverviewTabContent(
-                                p = currentProject,
-                                onUpdateTags = { viewModel.updateProjectTags(it) },
-                                onRegenerateSummary = { viewModel.regenerateExecutiveSummary(currentProject) }
-                            )
-                            1 -> HealthDashboardTabContent(
-                                p = currentProject,
-                                onRunAudit = { viewModel.runHealthAudit() },
-                                onRunBugHunter = { viewModel.runBugHunter() }
-                            )
-                            2 -> RoadmapTabContent(
-                                roadmap = currentProject.projectRoadmap,
-                                onGenerate = { viewModel.generateRoadmap() }
-                            )
-                            3 -> RequirementsTabContent(currentProject.requirements)
-                            4 -> ScreenBuilderTabContent(currentProject.uxArchitecture, currentProject.designSystem)
-                            5 -> ArchitectureTabContent(currentProject.systemArchitecture, currentProject.techStack)
-                            6 -> DatabaseTabContent(currentProject.databaseSchema)
-                            7 -> ApiDesignTabContent(currentProject.apiDesign)
-                            8 -> DirectoryTabContent(currentProject.directoryTree, currentProject.fileSpecifications) {
-                                selectedFileSpec = it
-                                selectedTabIdx = 9
-                            }
-                            9 -> FileSpecsTabContent(currentProject.fileSpecifications, initialSelectedFile = selectedFileSpec)
-                            10 -> EnvironmentTabContent(currentProject.environmentVariables)
-                            11 -> SecurityTabContent(currentProject.securityPlan, currentProject.qualityReport, onAutoFix = { viewModel.autoFixInconsistencies() })
-                            12 -> ScaleAndCostTabContent(currentProject.scalabilityPlan, currentProject.costEstimates, currentProject.costComplexity)
-                            13 -> DeploymentTabContent(currentProject.deploymentPlan, currentProject.buildPlan)
-                            14 -> IntegrationsTabContent(currentProject.integrations)
-                            15 -> MasterPromptTabContent(currentProject)
-                        }
-                    }
                 }
-            }
-            
-            // Right Panel (Context/Assistant)
-            AnimatedVisibility(visible = isRightPanelOpen) {
-                Surface(
-                    modifier = Modifier.width(380.dp).fillMaxHeight().drawBehind {
-                        drawLine(
-                            color = CardBorderDark,
-                            start = Offset(0f, 0f),
-                            end = Offset(0f, size.height),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                    },
-                    color = MaterialTheme.colorScheme.surface
-                ) {
-                    Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("AI ARCHITECT LAB", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                            IconButton(onClick = { isRightPanelOpen = false }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(18.dp))
+
+                // Right Panel (Context/Assistant)
+                AnimatedVisibility(visible = isRightPanelOpen) {
+                    Surface(
+                        modifier = Modifier.width(380.dp).fillMaxHeight().drawBehind {
+                            drawLine(
+                                color = CardBorderDark,
+                                start = Offset(0f, 0f),
+                                end = Offset(0f, size.height),
+                                strokeWidth = 1.dp.toPx()
+                            )
+                        },
+                        color = MaterialTheme.colorScheme.surface
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("AI ARCHITECT LAB", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                                IconButton(onClick = { isRightPanelOpen = false }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(18.dp))
+                                }
                             }
+                            
+                            AiArchitectChatTabContent(
+                                messages = chatMessages,
+                                onSend = { viewModel.sendChatMessage(it) }
+                            )
                         }
-                        
-                        AiArchitectChatTabContent(
-                            messages = chatMessages,
-                            onSend = { viewModel.sendChatMessage(it) }
-                        )
                     }
                 }
             }
@@ -345,6 +363,73 @@ fun ProjectWorkspaceScreen(
     }
 }
 
+@Composable
+fun ExportDialog(
+    blueprint: ProjectBlueprint,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.CloudDownload, contentDescription = null, tint = CyanAccent)
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("Export Production Assets")
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Your project is ready for export. Choose your preferred format to continue development or deployment.", style = MaterialTheme.typography.bodySmall)
+                
+                ExportOptionItem(
+                    title = "Full Source Code Bundle (.zip)",
+                    description = "Complete project folder with all generated Kotlin/JSON files, ready for AI Studio / IDE import.",
+                    icon = Icons.Default.Inventory2
+                )
+                ExportOptionItem(
+                    title = "Architectural Specification (PDF)",
+                    description = "Detailed technical blueprint for stakeholders and dev teams.",
+                    icon = Icons.Default.Description
+                )
+                ExportOptionItem(
+                    title = "Deployment Script (.sh)",
+                    description = "Automated setup for Cloud Run, Firebase, or AWS Amplify.",
+                    icon = Icons.Default.Terminal
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary)) {
+                Text("Download ZIP")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
+
+@Composable
+fun ExportOptionItem(title: String, description: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().clickable { },
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = IndigoPrimary, modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Text(description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
 // ================= TAB: OVERVIEW =================
 @Composable
 fun OverviewTabContent(
@@ -354,61 +439,146 @@ fun OverviewTabContent(
 ) {
     var isEditingTags by remember { mutableStateOf(false) }
 
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 32.dp)
+    ) {
         item {
-            SectionCard(title = "Executive Summary", icon = Icons.Default.AutoAwesome) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        p.executiveSummary.ifBlank { "Generating high-level architecture overview..." },
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
+            AnimatedVisibility(
+                visible = true,
+                enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically()
+            ) {
+                // Software Factory Hero
+                Surface(
+                    modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(24.dp)),
+                    color = Color.Black,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                ) {
+                Box {
+                    // Simulated visual background
+                    Box(modifier = Modifier.fillMaxSize().background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(IndigoPrimary.copy(alpha = 0.4f), Color.Transparent)
+                        )
+                    ))
+                    
+                    Column(modifier = Modifier.padding(32.dp).align(Alignment.CenterStart)) {
+                        Surface(
+                            shape = CircleShape,
+                            color = CyanAccent.copy(alpha = 0.2f),
+                            border = BorderStroke(1.dp, CyanAccent.copy(alpha = 0.5f))
+                        ) {
+                            Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Bolt, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("AI ARCHITECT AT WORK", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = CyanAccent, letterSpacing = 1.sp)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(p.name, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Black, color = Color.White)
+                        Text(p.tagline, style = MaterialTheme.typography.titleMedium, color = Color.Gray)
+                    }
+                    
+                    Icon(
+                        Icons.Default.PrecisionManufacturing,
+                        contentDescription = null,
+                        tint = Color.DarkGray,
+                        modifier = Modifier.size(140.dp).align(Alignment.CenterEnd).padding(end = 32.dp).alpha(0.15f)
                     )
-                    IconButton(onClick = onRegenerateSummary) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Regenerate", tint = CyanAccent)
+                }
+            }
+        }
+    }
+
+    item {
+            SectionCard(
+                title = "ARCHITECTURAL EXECUTIVE SUMMARY", 
+                icon = Icons.Default.AutoAwesome,
+                accentColor = CyanAccent
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        p.executiveSummary.ifBlank { "Analyzing core logic and building the strategic blueprint..." },
+                        style = MaterialTheme.typography.bodyLarge,
+                        lineHeight = 28.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(
+                        onClick = onRegenerateSummary,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Re-Architect Logic")
                     }
                 }
             }
         }
         item {
-            SectionCard(title = "Primary Goal & Vision", icon = Icons.Default.Lightbulb) {
-                Text(p.tagline, style = MaterialTheme.typography.titleMedium, color = IndigoLight)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(p.rawIdea, style = MaterialTheme.typography.bodySmall)
+            SectionCard(
+                title = "PRODUCT DNA & MISSION", 
+                icon = Icons.Default.Lightbulb,
+                accentColor = AmberWarning
+            ) {
+                Text(p.tagline, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = IndigoPrimary)
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                ) {
+                    Text(p.rawIdea, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(20.dp), lineHeight = 24.sp)
+                }
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 HealthScoreCard(
-                    modifier = Modifier.weight(1f), 
+                    modifier = Modifier.fillMaxWidth(), 
                     qualityReport = p.qualityReport, 
                     health = p.projectHealth,
                     onAutoFixClick = {}
                 )
-                Surface(
-                    modifier = Modifier.weight(1f).height(120.dp).clip(RoundedCornerShape(16.dp)),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.Center) {
-                        Text("Category", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(p.category, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = CyanAccent)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("${p.features.size} Features • ${p.uxArchitecture.screens.size} Screens", style = MaterialTheme.typography.labelSmall)
+                SectionCard(title = "Project Classification", icon = Icons.Default.Category) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text("Main Category", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(p.category, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = CyanAccent)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Complexity Index", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(p.costComplexity.complexityLevel, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        }
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("${p.features.size} Logic Modules • ${p.uxArchitecture.screens.size} Screen Blueprints", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
         item {
-            SectionCard(title = "Project Metadata & Tags", icon = Icons.Default.Tag) {
+            SectionCard(title = "Strategic Taxonomy (Tags)", icon = Icons.Default.Tag) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    FlowRow(mainAxisSpacing = 8.dp, crossAxisSpacing = 8.dp, modifier = Modifier.weight(1f)) {
+                    FlowRow(mainAxisSpacing = 12.dp, crossAxisSpacing = 12.dp, modifier = Modifier.weight(1f)) {
                         p.tags.forEach { tag ->
-                            AssistChip(onClick = {}, label = { Text("#$tag") })
+                            Surface(
+                                color = IndigoPrimary.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(8.dp),
+                                border = BorderStroke(1.dp, IndigoPrimary.copy(alpha = 0.3f))
+                            ) {
+                                Text("#$tag", style = MaterialTheme.typography.labelMedium, color = IndigoLight, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                            }
                         }
-                        if (p.tags.isEmpty()) Text("No tags assigned.", style = MaterialTheme.typography.bodySmall)
+                        if (p.tags.isEmpty()) Text("No taxonomy tags assigned.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     }
                     IconButton(onClick = { isEditingTags = true }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit Tags")
+                        Icon(Icons.Default.Edit, contentDescription = "Edit Tags", tint = CyanAccent)
                     }
                 }
             }
@@ -450,15 +620,70 @@ fun StrategyTabContent(p: ProjectBlueprint) {
 
 @Composable
 fun RequirementsTabContent(req: ProjectRequirements) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(bottom = 32.dp)
+    ) {
         item {
-            SectionCard(title = "Functional Requirements", icon = Icons.Default.Settings) {
-                req.functional.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
+            SectionCard(
+                title = "PRIMARY FUNCTIONAL LOGIC", 
+                icon = Icons.Default.Settings,
+                accentColor = CyanAccent
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    req.functional.forEach { 
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(it, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
             }
         }
         item {
-            SectionCard(title = "Non-Functional Requirements", icon = Icons.Default.Security) {
-                req.nonFunctional.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
+            SectionCard(
+                title = "CORE SYSTEM QUALITY (NON-FUNCTIONAL)", 
+                icon = Icons.Default.VerifiedUser,
+                accentColor = IndigoPrimary
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    req.nonFunctional.forEach { 
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Security, contentDescription = null, tint = IndigoPrimary, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(it, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            SectionCard(
+                title = "PRODUCT GOALS & CONSTRAINTS", 
+                icon = Icons.Default.Gavel,
+                accentColor = IndigoLight
+            ) {
+                req.constraints.forEach {
+                    Row(modifier = Modifier.padding(vertical = 8.dp)) {
+                        Icon(Icons.Default.Flag, contentDescription = null, tint = IndigoPrimary, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(it, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
             }
         }
     }
@@ -466,23 +691,40 @@ fun RequirementsTabContent(req: ProjectRequirements) {
 
 @Composable
 fun FeaturesTabContent(features: List<FeatureItem>) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(bottom = 32.dp)
+    ) {
         items(features) { feature ->
-            Surface(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
-                color = MaterialTheme.colorScheme.surface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text(feature.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Badge(containerColor = IndigoPrimary.copy(alpha = 0.1f), contentColor = IndigoLight) {
-                            Text(feature.priority, modifier = Modifier.padding(horizontal = 4.dp))
-                        }
+            SectionCard(title = "LOGIC MODULE: ${feature.name}", icon = Icons.Default.Extension) {
+                Text(feature.purpose, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = CyanAccent)
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("STRATEGIC WORKFLOW", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = IndigoLight)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(feature.workflow, style = MaterialTheme.typography.bodyMedium)
                     }
-                    Text(feature.purpose, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Workflow: ${feature.workflow}", style = MaterialTheme.typography.bodySmall)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = IndigoPrimary.copy(alpha = 0.1f),
+                    border = BorderStroke(1.dp, IndigoPrimary.copy(alpha = 0.2f))
+                ) {
+                    Text(
+                        "PRIORITY: ${feature.priority.uppercase()}", 
+                        style = MaterialTheme.typography.labelSmall, 
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        color = IndigoLight
+                    )
                 }
             }
         }
@@ -505,21 +747,38 @@ fun UserRolesTabContent(roles: List<UserRole>) {
 
 @Composable
 fun ScreensTabContent(ux: UxArchitecture) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(bottom = 32.dp)
+    ) {
         items(ux.screens) { screen ->
-            Surface(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
-                color = MaterialTheme.colorScheme.surface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(screen.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Route: ${screen.route}", style = MaterialTheme.typography.labelSmall, color = CyanAccent)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(screen.description, style = MaterialTheme.typography.bodySmall)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Components:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                    screen.components.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+            SectionCard(title = "SCREEN: ${screen.name.uppercase()}", icon = Icons.Default.Dashboard) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("ROUTE ID:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = Color.Gray)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(screen.route, style = MaterialTheme.typography.labelSmall, color = CyanAccent, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(screen.description, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                Text("UI COMPONENTS", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = IndigoLight)
+                Spacer(modifier = Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    screen.components.forEach { 
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Adjust, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(12.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(it.name, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -546,102 +805,7 @@ fun TechStackTabContent(stack: TechStack) {
     }
 }
 
-@Composable
-fun ArchitectureTabContent(arch: SystemArchitecture) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item {
-            SectionCard(title = "Architecture Overview", icon = Icons.Default.AccountTree) {
-                Text(arch.overview, style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-        items(arch.layers) { layer ->
-            SectionCard(title = layer.name, icon = Icons.Default.Layers) {
-                Text(layer.description, style = MaterialTheme.typography.bodySmall)
-                Text("Components: ${layer.components.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
-            }
-        }
-    }
-}
 
-@Composable
-fun DatabaseTabContent(db: DatabaseSchema) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item {
-            SectionCard(title = "Database Strategy", icon = Icons.Default.Storage) {
-                Text("Type: ${db.databaseType}", style = MaterialTheme.typography.titleMedium, color = CyanAccent)
-                db.productionRecommendations.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
-            }
-        }
-        items(db.entities) { entity ->
-            SectionCard(title = "Table: ${entity.tableName}", icon = Icons.Default.TableChart) {
-                Text(entity.description, style = MaterialTheme.typography.bodySmall)
-                Spacer(modifier = Modifier.height(8.dp))
-                entity.fields.forEach { field ->
-                    Text("${field.name}: ${field.type} ${if (field.isPrimaryKey) "(PK)" else ""}", style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ApiDesignTabContent(endpoints: List<ApiEndpoint>) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(endpoints) { endpoint ->
-            Surface(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
-                color = MaterialTheme.colorScheme.surface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text(endpoint.path, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                        Badge(containerColor = EmeraldSuccess.copy(alpha = 0.1f), contentColor = EmeraldSuccess) {
-                            Text(endpoint.method, modifier = Modifier.padding(horizontal = 4.dp))
-                        }
-                    }
-                    Text(endpoint.purpose, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SecurityTabContent(security: SecurityPlan) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item {
-            SectionCard(title = "Authentication & Authorization", icon = Icons.Default.VerifiedUser) {
-                InfoRow("Strategy", security.authenticationStrategy)
-                Text("Rules:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                security.authorizationRules.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
-            }
-        }
-        item {
-            SectionCard(title = "Data Protection", icon = Icons.Default.Lock) {
-                InfoRow("Secrets Management", security.secretsManagement)
-                InfoRow("Privacy & Encryption", security.privacyAndEncryption)
-            }
-        }
-    }
-}
-
-@Composable
-fun AdminTabContent(admin: AdminArchitecture) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item {
-            SectionCard(title = "Admin Overview", icon = Icons.Default.AdminPanelSettings) {
-                Text(admin.overview, style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-        items(admin.panels) { panel ->
-            SectionCard(title = panel.name, icon = Icons.Default.DashboardCustomize) {
-                Text(panel.description, style = MaterialTheme.typography.bodySmall)
-                Text("Actions: ${panel.actions.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
-            }
-        }
-    }
-}
 
 @Composable
 fun DirectoryTabContent(
@@ -1007,6 +1171,326 @@ fun RoadmapSection(title: String, subtitle: String, items: List<RoadmapItem>, co
     }
 }
 @Composable
+fun DirectoryTreeView(
+    node: DirectoryNode,
+    indent: Int = 0,
+    selectedFile: String? = null,
+    onFileClick: (String) -> Unit
+) {
+    var isExpanded by remember { mutableStateOf(indent == 0) }
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { if (node.type == "folder") isExpanded = !isExpanded else onFileClick(node.name) }
+                .padding(start = (indent * 12).dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (node.type == "folder") {
+                    if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder
+                } else Icons.Default.Description,
+                contentDescription = null,
+                tint = if (node.type == "folder") IndigoLight else CyanAccent,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = node.name,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (selectedFile == node.name || (selectedFile != null && selectedFile.endsWith(node.name))) FontWeight.Bold else FontWeight.Normal,
+                color = if (selectedFile == node.name || (selectedFile != null && selectedFile.endsWith(node.name))) IndigoPrimary else MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        if (node.type == "folder" && isExpanded) {
+            node.children.forEach { child ->
+                DirectoryTreeView(child, indent + 1, selectedFile, onFileClick)
+            }
+        }
+    }
+}
+class SyntaxHighlightingTransformation(private val language: String) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        return TransformedText(
+            highlightCode(text.text, language),
+            OffsetMapping.Identity
+        )
+    }
+
+    private fun highlightCode(code: String, language: String): AnnotatedString {
+        val keywords = when (language.lowercase()) {
+            "kt", "kotlin", "java" -> listOf(
+                "package", "import", "class", "interface", "fun", "val", "var", "if", "else", 
+                "for", "while", "return", "data", "object", "sealed", "private", "public", 
+                "protected", "internal", "override", "suspend", "constructor", "init", "this", "super"
+            )
+            "json" -> listOf("true", "false", "null")
+            "sql" -> listOf(
+                "SELECT", "FROM", "WHERE", "INSERT", "INTO", "UPDATE", "DELETE", "CREATE", 
+                "TABLE", "DATABASE", "DROP", "ALTER", "JOIN", "LEFT", "RIGHT", "ON", "AND", "OR", "NOT"
+            )
+            else -> emptyList()
+        }
+
+        return buildAnnotatedString {
+            var lastIndex = 0
+            val regex = Regex("\\b(${keywords.joinToString("|")})\\b|//.*|/\\*.*\\*/|\".*?\"|'[0-9]'|\\d+")
+            
+            regex.findAll(code).forEach { result ->
+                append(code.substring(lastIndex, result.range.first))
+                
+                val match = result.value
+                val style = when {
+                    match.startsWith("//") || match.startsWith("/*") -> SpanStyle(color = Color(0xFF6A9955)) // Comments
+                    match.startsWith("\"") || match.startsWith("'") -> SpanStyle(color = Color(0xFFCE9178)) // Strings
+                    match.all { it.isDigit() } -> SpanStyle(color = Color(0xFFB5CEA8)) // Numbers
+                    keywords.contains(match) -> SpanStyle(color = Color(0xFF569CD6), fontWeight = FontWeight.Bold) // Keywords
+                    else -> SpanStyle(color = Color.White)
+                }
+                
+                withStyle(style) {
+                    append(match)
+                }
+                lastIndex = result.range.last + 1
+            }
+            append(code.substring(lastIndex))
+        }
+    }
+}
+
+@Composable
+fun CodeEditorView(
+    code: String,
+    onCodeChange: (String) -> Unit,
+    language: String,
+    modifier: Modifier = Modifier
+) {
+    val scrollState = rememberScrollState()
+    
+    Surface(
+        modifier = modifier.fillMaxSize().verticalScroll(scrollState),
+        color = Color.Transparent
+    ) {
+        BasicTextField(
+            value = code,
+            onValueChange = onCodeChange,
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            textStyle = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = FontFamily.Monospace,
+                lineHeight = 16.sp,
+                color = Color(0xFFD4D4D4)
+            ),
+            cursorBrush = SolidColor(CyanAccent),
+            visualTransformation = SyntaxHighlightingTransformation(language)
+        )
+    }
+}
+
+@Composable
+fun CodeLabTabContent(
+    p: ProjectBlueprint,
+    initialSelectedFile: FileSpecification?,
+    onFileSelected: (FileSpecification?) -> Unit,
+    onGenerateCode: (String) -> Unit,
+    onSaveCode: (String, String) -> Unit
+) {
+    var selectedFile by remember(initialSelectedFile) { mutableStateOf(initialSelectedFile) }
+    var editedCode by remember { mutableStateOf("") }
+
+    LaunchedEffect(selectedFile) {
+        if (selectedFile != null && selectedFile!!.content.isBlank()) {
+            editedCode = generateSmartBoilerplate(selectedFile!!.filePath, p.name)
+        } else {
+            editedCode = selectedFile?.content ?: ""
+        }
+    }
+
+    Row(modifier = Modifier.fillMaxSize()) {
+        // Sidebar: File Explorer
+        Surface(
+            modifier = Modifier.width(260.dp).fillMaxHeight(),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp,
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("ARCHITECTURAL SOURCE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = CyanAccent, letterSpacing = 1.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                DirectoryTreeView(
+                    node = p.directoryTree,
+                    selectedFile = selectedFile?.filePath,
+                    onFileClick = { path ->
+                        val found = p.fileSpecifications.find { it.filePath == path }
+                        selectedFile = found
+                        onFileSelected(found)
+                    }
+                )
+            }
+        }
+
+        // Center: Code Editor
+        Column(modifier = Modifier.weight(1f).fillMaxHeight().padding(16.dp)) {
+            if (selectedFile != null) {
+                val file = selectedFile!!
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(file.filePath.substringAfterLast("/"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+                        Text(file.filePath, style = MaterialTheme.typography.labelSmall, color = CyanAccent, fontFamily = FontFamily.Monospace)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { onGenerateCode(file.filePath) },
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("AI BUILD")
+                        }
+                        Button(
+                            onClick = { onSaveCode(file.filePath, editedCode) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary)
+                        ) {
+                            Text("COMMIT")
+                        }
+                    }
+                }
+                
+                Surface(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF1E1E1E),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                ) {
+                    if (editedCode.isBlank()) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(Icons.Default.Terminal, contentDescription = null, tint = Color.DarkGray, modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Awaiting AI Build for this module", color = Color.Gray)
+                            Button(onClick = { onGenerateCode(file.filePath) }, modifier = Modifier.padding(top = 12.dp)) {
+                                Text("Generate Boilerplate")
+                            }
+                        }
+                    } else {
+                        CodeEditorView(
+                            code = editedCode,
+                            onCodeChange = { editedCode = it },
+                            language = file.filePath.substringAfterLast(".", "kt")
+                        )
+                    }
+                }
+            } else {
+                // Empty state: Show Master Prompt
+                SectionCard(title = "Master Architectural Directive", icon = Icons.Default.PrecisionManufacturing) {
+                    Text(
+                        "No file selected. Reviewing high-level project DNA...",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = CyanAccent
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Surface(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF1E1E1E),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                    ) {
+                        Column(modifier = Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
+                            Text(
+                                p.masterCodingPrompt,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    lineHeight = 18.sp,
+                                    color = Color(0xFFD4D4D4)
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun BuildStatusCard(report: BuildReport, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Build Status", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                report.status,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Black,
+                color = when(report.status) {
+                    "SUCCESS" -> EmeraldSuccess
+                    "FAILED" -> RoseError
+                    "BUILDING" -> CyanAccent
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
+            )
+            if (report.lastBuildTimestamp > 0) {
+                Text("Last build: Just now", style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+@Composable
+fun BuildMetricsCard(metrics: BuildMetrics, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Quality Metrics", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = EmeraldSuccess, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("${(metrics.testPassRate * 100).toInt()}% Tests Passed", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+            }
+            Text("Bundle: ${metrics.bundleSizeKb} KB", style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+@Composable
+fun CodeBlockView(
+    code: String,
+    language: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+        color = Color.Transparent
+    ) {
+        Text(
+            text = code,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = FontFamily.Monospace,
+                lineHeight = 16.sp
+            ),
+            color = Color(0xFFD4D4D4)
+        )
+    }
+}
+
+@Composable
 fun UserFlowsTabContent(ux: UxArchitecture) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
         item {
@@ -1026,6 +1510,128 @@ fun UserFlowsTabContent(ux: UxArchitecture) {
             }
         }
         item { Spacer(modifier = Modifier.height(60.dp)) }
+    }
+}
+
+// ================= TAB: BUILD STUDIO =================
+@Composable
+fun BuildStudioTabContent(
+    p: ProjectBlueprint,
+    onRunBuild: () -> Unit
+) {
+    val report = p.buildReport
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(bottom = 32.dp)
+    ) {
+        item {
+            SectionCard(
+                title = "AUTONOMOUS BUILD ENGINE", 
+                icon = Icons.Default.Terminal,
+                accentColor = CyanAccent
+            ) {
+                Column {
+                    Text("MANUFACTURING SUITE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = CyanAccent)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Trigger autonomous runtime simulations, integration testing, and linting cycles for the ${p.name} blueprint.", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = onRunBuild, 
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary)
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Initiate Factory Build Sequence", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        item {
+            BuildStatusCard(report, modifier = Modifier.fillMaxWidth())
+        }
+        item {
+            BuildMetricsCard(report.buildMetrics, modifier = Modifier.fillMaxWidth())
+        }
+
+        if (report.errors.isNotEmpty()) {
+            item {
+                SectionCard(title = "COMPILATION & LOGICAL ERRORS", icon = Icons.Default.ReportProblem, accentColor = RoseError) {
+                    report.errors.forEach { error ->
+                        Column(modifier = Modifier.padding(vertical = 12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = RoseError, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text("${error.file}:${error.line}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(error.message, style = MaterialTheme.typography.bodySmall)
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    }
+                }
+            }
+        }
+
+        item {
+            SectionCard(
+                title = "BUILD CONSOLE & RUNTIME LOGS", 
+                icon = Icons.Default.VerticalAlignBottom, 
+                containerColor = Color(0xFF0A0A0A),
+                accentColor = Color.White
+            ) {
+                if (report.logs.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
+                        Text("CONSOLE IDLE: AWAITING COMMAND", color = Color.Gray, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        report.logs.forEach { log ->
+                            Text(
+                                text = "> [${log.level}] ${log.message}",
+                                color = when(log.level) {
+                                    "ERROR" -> RoseError
+                                    "WARN" -> AmberWarning
+                                    else -> EmeraldSuccess
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                fontFamily = FontFamily.Monospace,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            SectionCard(title = "LIVE RUNTIME PREVIEW (SIMULATED)", icon = Icons.Default.Preview, accentColor = IndigoLight) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(400.dp).clip(RoundedCornerShape(16.dp)).background(Color.Black),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (report.status == "SUCCESS") {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Devices, contentDescription = null, tint = EmeraldSuccess, modifier = Modifier.size(64.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("RUNTIME ACTIVE", color = EmeraldSuccess, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
+                            Text("Application is running in simulated environment", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                        }
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.PauseCircle, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(64.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("AWAITING SUCCESSFUL BUILD", color = Color.Gray, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+        item { Spacer(modifier = Modifier.height(100.dp)) }
     }
 }
 
@@ -1206,54 +1812,6 @@ fun TestingTabContent(strategy: TestingStrategyPlan?, checklist: TestingChecklis
 }
 
 // ================= TAB: DEPLOYMENT =================
-@Composable
-fun DeploymentTabContent(plan: DeploymentPlan) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-        item {
-            SectionCard(title = "Infrastructure & Commands", icon = Icons.Default.CloudUpload) {
-                InfoRow("Primary Platform", plan.primaryPlatform)
-                InfoRow("Build Commands", plan.buildCommands)
-                InfoRow("SSL & Domain", plan.sslAndDomain)
-            }
-        }
-        item {
-            SectionCard(title = "Operations Strategy", icon = Icons.Default.Timeline) {
-                InfoRow("Database Migration", plan.databaseMigrationStrategy)
-                InfoRow("Monitoring", plan.monitoringAndAlerts)
-                InfoRow("Rollback Strategy", plan.rollbackStrategy)
-            }
-        }
-        item { Spacer(modifier = Modifier.height(60.dp)) }
-    }
-}
-
-// ================= TAB: QUALITY REPORT =================
-@Composable
-fun QualityReportTabContent(p: ProjectBlueprint, onAutoFix: () -> Unit) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-        item {
-            HealthScoreCard(qualityReport = p.qualityReport, onAutoFixClick = onAutoFix)
-        }
-        item {
-            SectionCard(title = "Critical Architecture Issues", icon = Icons.Default.Report) {
-                if (p.qualityReport.criticalIssues.isEmpty()) {
-                    Text("No critical issues found.", color = EmeraldSuccess)
-                }
-                p.qualityReport.criticalIssues.forEach { issue ->
-                    Row(modifier = Modifier.padding(vertical = 4.dp)) {
-                        Icon(Icons.Default.Error, contentDescription = null, tint = RoseError, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(issue.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                            Text(issue.description, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-            }
-        }
-        item { Spacer(modifier = Modifier.height(60.dp)) }
-    }
-}
 
 // ================= TAB: AI ARCHITECT CHAT =================
 @Composable
@@ -1590,38 +2148,78 @@ fun ScaleAndCostTabContent(scale: ScalabilityPlan, cost: CostEstimates, report: 
 
 @Composable
 fun ArchitectureTabContent(arch: SystemArchitecture, stack: TechStack) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxSize()) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(bottom = 32.dp)
+    ) {
         item {
-            SectionCard(title = "Core Technology Stack", icon = Icons.Default.Layers) {
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        InfoRow("Frontend", stack.frontend.name)
-                        InfoRow("Backend", stack.backend.name)
-                        InfoRow("Primary DB", stack.database.name)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        InfoRow("Auth", stack.authentication.name)
-                        InfoRow("AI Layer", stack.aiModels.name)
-                        InfoRow("Deploy", stack.deployment.name)
+            SectionCard(
+                title = "CORE TECHNOLOGY ECOSYSTEM", 
+                icon = Icons.Default.Layers,
+                accentColor = IndigoPrimary
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            InfoRow("Frontend Tier", stack.frontend.name)
+                            InfoRow("Backend Engine", stack.backend.name)
+                            InfoRow("Data Persistence", stack.database.name)
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            InfoRow("Identity Service", stack.authentication.name)
+                            InfoRow("Intelligence Layer", stack.aiModels.name)
+                            InfoRow("Delivery Pipeline", stack.deployment.name)
+                        }
                     }
                 }
             }
         }
         item {
-            SectionCard(title = "System Layout Overview", icon = Icons.Default.AutoAwesomeMotion) {
-                Text(arch.overview, style = MaterialTheme.typography.bodyMedium)
+            SectionCard(
+                title = "SYSTEM BLUEPRINT OVERVIEW", 
+                icon = Icons.Default.AutoAwesomeMotion,
+                accentColor = CyanAccent
+            ) {
+                Text(
+                    arch.overview, 
+                    style = MaterialTheme.typography.bodyLarge, 
+                    lineHeight = 26.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
         items(arch.layers) { layer ->
-            SectionCard(title = "Layer: ${layer.name}", icon = Icons.Default.Schema) {
-                Text(layer.description, style = MaterialTheme.typography.bodySmall)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("Responsibilities:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = IndigoLight)
-                layer.components.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+            SectionCard(
+                title = "ARCHITECTURAL LAYER: ${layer.name}", 
+                icon = Icons.Default.Schema,
+                accentColor = IndigoLight
+            ) {
+                Text(layer.description, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("LAYER RESPONSIBILITIES", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = CyanAccent)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        layer.components.forEach { 
+                            Row(modifier = Modifier.padding(vertical = 4.dp)) {
+                                Icon(Icons.Default.Adjust, contentDescription = null, tint = IndigoPrimary, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(it, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
+
 
 @Composable
 fun SecurityTabContent(security: SecurityPlan, quality: QualityReport, onAutoFix: () -> Unit) {
@@ -1674,23 +2272,41 @@ fun SectionCard(
     title: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     containerColor: Color = MaterialTheme.colorScheme.surface,
+    accentColor: Color = CyanAccent,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp)),
-        shape = RoundedCornerShape(14.dp),
+            .padding(vertical = 12.dp),
+        shape = RoundedCornerShape(24.dp),
         color = containerColor,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        tonalElevation = 4.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier.padding(28.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 20.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = accentColor.copy(alpha = 0.1f),
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(24.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.width(18.dp))
+                Text(
+                    title.uppercase(), 
+                    style = MaterialTheme.typography.labelMedium, 
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 2.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
             content()
         }
     }
@@ -1793,4 +2409,188 @@ fun FlowRow(
         verticalArrangement = Arrangement.spacedBy(crossAxisSpacing),
         content = { content() }
     )
+}
+
+fun generateSmartBoilerplate(filePath: String, projectName: String): String {
+    val fileName = filePath.substringAfterLast("/")
+    val packageName = "com.example.${projectName.lowercase().replace(" ", "")}"
+    
+    return when {
+        filePath.endsWith(".kt") -> """
+            package $packageName
+            
+            /**
+             * Smart-generated implementation for $fileName
+             * Part of the $projectName architectural blueprint.
+             */
+            class ${fileName.substringBefore(".")} {
+                // TODO: Implement core business logic for $projectName
+                
+                fun initialize() {
+                    println("Initializing $fileName for $projectName")
+                }
+            }
+        """.trimIndent()
+        filePath.endsWith(".xml") -> """
+            <?xml version="1.0" encoding="utf-8"?>
+            <!-- Smart-generated UI resource for $fileName -->
+            <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:padding="16dp">
+                
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Welcome to $projectName - $fileName"
+                    android:textSize="24sp" />
+                    
+            </LinearLayout>
+        """.trimIndent()
+        else -> "// Smart-generated boilerplate for $fileName\n// Project: $projectName\n\n// TODO: Implement logic"
+    }
+}
+
+@Composable
+fun DatabaseTabContent(db: DatabaseSchema) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(bottom = 32.dp)
+    ) {
+        item {
+            SectionCard(
+                title = "ARCHITECTURAL DATA STRATEGY", 
+                icon = Icons.Default.Storage,
+                accentColor = CyanAccent
+            ) {
+                Text("ENGINE: ${db.databaseType.uppercase()}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = IndigoPrimary)
+                Spacer(modifier = Modifier.height(16.dp))
+                db.productionRecommendations.forEach { 
+                    Row(modifier = Modifier.padding(vertical = 4.dp)) {
+                        Icon(Icons.Default.Adjust, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(it, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
+        items(db.entities) { entity ->
+            SectionCard(
+                title = "ENTITY: ${entity.tableName}", 
+                icon = Icons.Default.TableChart,
+                accentColor = IndigoLight
+            ) {
+                Text(entity.description, style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(12.dp))
+                entity.fields.forEach { field ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(field.name, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                        Text(field.type, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ApiDesignTabContent(endpoints: List<ApiEndpoint>) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(bottom = 32.dp)
+    ) {
+        items(endpoints) { endpoint ->
+            SectionCard(
+                title = "${endpoint.method} ${endpoint.path}", 
+                icon = Icons.Default.Http,
+                accentColor = CyanAccent
+            ) {
+                Column {
+                    Text(endpoint.purpose, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("REQUEST SCHEMA", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                    Text(endpoint.requestBody.ifBlank { "No request body required" }, style = MaterialTheme.typography.bodySmall)
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("RESPONSE SCHEMA", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.outline)
+                                    Text(endpoint.responseBody.ifBlank { "Standard status response" }, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun QualityReportTabContent(p: ProjectBlueprint, onAutoFix: () -> Unit) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
+        item {
+            HealthScoreCard(qualityReport = p.qualityReport, onAutoFixClick = onAutoFix)
+        }
+        item {
+            SectionCard(title = "Critical Architecture Issues", icon = Icons.Default.Report) {
+                if (p.qualityReport.criticalIssues.isEmpty()) {
+                    Text("No critical issues found.", color = EmeraldSuccess)
+                }
+                p.qualityReport.criticalIssues.forEach { issue ->
+                    Row(modifier = Modifier.padding(vertical = 4.dp)) {
+                        Icon(Icons.Default.Error, contentDescription = null, tint = RoseError, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(issue.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            Text(issue.description, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+        }
+        item { Spacer(modifier = Modifier.height(60.dp)) }
+    }
+}
+
+@Composable
+fun HealthScoreCard(qualityReport: QualityReport, onAutoFixClick: () -> Unit) {
+    SectionCard(title = "QUALITY INDEX", icon = Icons.Default.HealthAndSafety, accentColor = EmeraldSuccess) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { qualityReport.healthScore / 100f },
+                    modifier = Modifier.size(80.dp),
+                    color = if (qualityReport.healthScore > 80) EmeraldSuccess else if (qualityReport.healthScore > 50) Color.Yellow else RoseError,
+                    strokeWidth = 8.dp,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+                Text("${qualityReport.healthScore}%", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+            }
+            Spacer(modifier = Modifier.width(24.dp))
+            Column {
+                Text(qualityReport.checksSummary, style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = onAutoFixClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Auto-Fix Issues")
+                }
+            }
+        }
+    }
 }

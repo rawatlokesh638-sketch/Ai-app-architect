@@ -50,7 +50,51 @@ data class ProjectBlueprint(
     val deploymentPlan: DeploymentPlan = DeploymentPlan(),
     val alternativeTechStack: AlternativeTechStack = AlternativeTechStack(),
     val architectureDiff: ArchitectureDiff? = null,
+    val buildReport: BuildReport = BuildReport(),
+    val snapshots: List<ProjectSnapshot> = emptyList(),
     val generationMode: String = "DEEP" // QUICK, STANDARD, DEEP
+)
+
+@JsonClass(generateAdapter = true)
+data class ProjectSnapshot(
+    val id: String = "",
+    val timestamp: Long = System.currentTimeMillis(),
+    val version: String = "",
+    val reason: String = "",
+    val blueprintJson: String = ""
+)
+
+@JsonClass(generateAdapter = true)
+data class BuildReport(
+    val lastBuildTimestamp: Long = 0,
+    val status: String = "IDLE", // IDLE, BUILDING, SUCCESS, FAILED
+    val logs: List<BuildLogEntry> = emptyList(),
+    val errors: List<BuildError> = emptyList(),
+    val previewUrl: String = "",
+    val buildMetrics: BuildMetrics = BuildMetrics()
+)
+
+@JsonClass(generateAdapter = true)
+data class BuildLogEntry(
+    val timestamp: Long = System.currentTimeMillis(),
+    val level: String = "INFO", // INFO, WARN, ERROR
+    val message: String = ""
+)
+
+@JsonClass(generateAdapter = true)
+data class BuildError(
+    val file: String = "",
+    val line: Int = 0,
+    val message: String = "",
+    val codeSnippet: String = "",
+    val aiSuggestedFix: String = ""
+)
+
+@JsonClass(generateAdapter = true)
+data class BuildMetrics(
+    val buildTimeMs: Long = 0,
+    val bundleSizeKb: Int = 0,
+    val testPassRate: Float = 0f
 )
 
 @JsonClass(generateAdapter = true)
@@ -368,6 +412,7 @@ data class DirectoryNode(
 data class FileSpecification(
     val filePath: String = "",
     val purpose: String = "",
+    val content: String = "",
     val dependencies: List<String> = emptyList(),
     val responsibilities: List<String> = emptyList(),
     val importantFunctions: List<String> = emptyList(),

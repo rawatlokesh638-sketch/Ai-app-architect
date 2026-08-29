@@ -87,6 +87,7 @@ object ArchitecturePrompts {
             {
               "filePath": "string",
               "purpose": "string",
+              "content": "STRICTLY EMPTY STRING FOR NOW",
               "dependencies": ["string"],
               "responsibilities": ["string"],
               "importantFunctions": ["string"],
@@ -100,6 +101,20 @@ object ArchitecturePrompts {
         
         Include at least 100 files in the tree. 
         Provide specs for at least 40 critical files.
+    """.trimIndent()
+
+    fun getFileCodePrompt(blueprintJson: String, filePath: String) = """
+        Blueprint: $blueprintJson
+        Task: Generate COMPLETE, production-ready source code for the file: $filePath
+        
+        INSTRUCTIONS:
+        1. Read the file specification for $filePath in the blueprint.
+        2. Understand its relationship with other files (imports, dependencies).
+        3. Write clean, idiomatic, and highly secure code.
+        4. Include comments explaining the logic.
+        5. Handle errors gracefully.
+        
+        Return ONLY the source code as a string. No markdown blocks.
     """.trimIndent()
 
     fun getModificationPrompt(currentBlueprintJson: String, userInstruction: String): String {

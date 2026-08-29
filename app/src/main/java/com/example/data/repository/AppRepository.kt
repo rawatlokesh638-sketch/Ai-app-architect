@@ -173,6 +173,43 @@ class AppRepository(private val database: AppDatabase) {
         updated
     }
 
+    suspend fun generateFileCode(projectId: String, filePath: String): String = withContext(Dispatchers.IO) {
+        val project = getProject(projectId) ?: return@withContext "// Project not found"
+        ArchitectureEngine.generateFileCode(project, filePath)
+    }
+
+    suspend fun updateFileContent(projectId: String, filePath: String, content: String): ProjectBlueprint? = withContext(Dispatchers.IO) {
+        val project = getProject(projectId) ?: return@withContext null
+        val updatedSpecs = project.fileSpecifications.map {
+            if (it.filePath == filePath) it.copy(content = content) else it
+        }
+        val updated = project.copy(fileSpecifications = updatedSpecs, lastModified = System.currentTimeMillis())
+        saveProject(updated, "Updated content for $filePath")
+        updated
+    }
+
+    suspend fun runBuildSimulation(projectId: String): ProjectBlueprint? = withContext(Dispatchers.IO) {
+        val project = getProject(projectId) ?: return@withContext null
+        val updated = ArchitectureEngine.runBuildSimulation(project)
+        saveProject(updated, "Ran Build Simulation")
+        updated
+    }
+
+    suspend fun createSnapshot(projectId: String, reason: String): ProjectBlueprint? = withContext(Dispatchers.IO) {
+        val project = getProject(projectId) ?: return@withContext null
+        val updated = ArchitectureEngine.createSnapshot(project, reason)
+        saveProject(updated, "Created Project Snapshot: $reason")
+        updated
+    }
+
+    suspend fun restoreSnapshot(projectId: String, snapshotId: String): ProjectBlueprint? = withContext(Dispatchers.IO) {
+        val project = getProject(projectId) ?: return@withContext null
+        val snapshot = project.snapshots.find { it.id == snapshotId } ?: return@withContext null
+        val restored = BlueprintJsonAdapter.fromJson(snapshot.blueprintJson) ?: return@withContext null
+        saveProject(restored, "Restored Snapshot: ${snapshot.reason}")
+        restored
+    }
+
     fun getSettings(): Flow<com.example.data.local.AppSettings?> {
         return projectDao.getSettings()
     }

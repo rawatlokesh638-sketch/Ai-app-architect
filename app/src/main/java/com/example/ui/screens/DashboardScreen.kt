@@ -337,16 +337,6 @@ fun DashboardScreen(
                 }
             }
         }
-
-        // Overlay for generation
-        if (uiState is com.example.ui.viewmodel.UiState.Generating) {
-            val genState = uiState as com.example.ui.viewmodel.UiState.Generating
-            com.example.ui.components.GenerationProgressOverlay(
-                step = genState.step,
-                progress = genState.progress,
-                onDismiss = { viewModel.clearUiState() }
-            )
-        }
     }
 
     // Auth Dialog

@@ -43,6 +43,11 @@ object ArchitectureEngine {
 
         // 7. System Architecture & Visual Diagram Layers
         val systemArch = buildSystemArchitecture(archetype, techStack)
+        val designSystem = buildDesignSystem(archetype)
+        val envVars = buildEnvironmentVariables(archetype, techStack)
+        val integrations = buildIntegrations(archetype)
+        val userRoles = buildUserRoles(archetype)
+        val adminArch = buildAdminArchitecture(archetype)
 
         // 8. Database Schema Design (Tables, fields, relations, validation)
         val dbSchema = buildDatabaseSchema(archetype, features)
@@ -110,6 +115,11 @@ object ArchitectureEngine {
             techStack = techStack,
             systemArchitecture = systemArch,
             databaseSchema = dbSchema,
+            designSystem = designSystem,
+            environmentVariables = envVars,
+            integrations = integrations,
+            userRoles = userRoles,
+            adminArchitecture = adminArch,
             apiDesign = apiEndpoints,
             securityPlan = security,
             directoryTree = dirTree,
@@ -1536,8 +1546,6 @@ Follow this strict 12-step execution sequence:
         val prompt = ArchitecturePrompts.getHealthCheckPrompt(BlueprintJsonAdapter.toJson(blueprint))
         return try {
             val result = GeminiClient.generateText(prompt, jsonMode = true).getOrThrow()
-            // We need to parse both ProjectHealth and QualityReport from the AI response
-            // For simplicity in this implementation, I'll use a wrapper class
             val response = moshi.adapter(HealthCheckResponse::class.java).fromJson(result)
             if (response != null) {
                 blueprint.copy(
@@ -1548,6 +1556,57 @@ Follow this strict 12-step execution sequence:
         } catch (e: Exception) {
             blueprint
         }
+    }
+
+    suspend fun generateFileCode(blueprint: ProjectBlueprint, filePath: String): String {
+        val prompt = ArchitecturePrompts.getFileCodePrompt(BlueprintJsonAdapter.toJson(blueprint), filePath)
+        return try {
+            GeminiClient.generateText(prompt).getOrThrow()
+        } catch (e: Exception) {
+            "// Error generating code for $filePath: ${e.message}"
+        }
+    }
+
+    suspend fun runBuildSimulation(blueprint: ProjectBlueprint): ProjectBlueprint {
+        // In a real IDE, this would run a compiler.
+        // Here, we simulate the engineering loop by asking AI to "Build" and report issues.
+        val prompt = """
+            Blueprint: ${BlueprintJsonAdapter.toJson(blueprint)}
+            Task: Simulate a FULL BUILD, LINT, and TEST run for this project.
+            
+            Identify any:
+            1. Compilation errors (missing imports, type mismatches).
+            2. Lint warnings (security risks, performance issues).
+            3. Logical bugs (unhandled edge cases).
+            
+            Return JSON matching the BuildReport structure:
+            {
+              "status": "SUCCESS" or "FAILED",
+              "logs": [{ "level": "INFO|WARN|ERROR", "message": "string" }],
+              "errors": [{ "file": "string", "line": 0, "message": "string", "aiSuggestedFix": "string" }],
+              "buildMetrics": { "buildTimeMs": 0, "bundleSizeKb": 0, "testPassRate": 0.0 }
+            }
+        """.trimIndent()
+
+        return try {
+            val result = GeminiClient.generateText(prompt, jsonMode = true).getOrThrow()
+            val report = moshi.adapter(BuildReport::class.java).fromJson(result)
+            if (report != null) {
+                blueprint.copy(buildReport = report.copy(lastBuildTimestamp = System.currentTimeMillis()))
+            } else blueprint
+        } catch (e: Exception) {
+            blueprint
+        }
+    }
+
+    suspend fun createSnapshot(blueprint: ProjectBlueprint, reason: String): ProjectBlueprint {
+        val snapshot = ProjectSnapshot(
+            id = UUID.randomUUID().toString(),
+            version = blueprint.version,
+            reason = reason,
+            blueprintJson = BlueprintJsonAdapter.toJson(blueprint)
+        )
+        return blueprint.copy(snapshots = blueprint.snapshots + snapshot)
     }
 
     suspend fun generateRoadmap(blueprint: ProjectBlueprint): ProjectBlueprint {
@@ -1654,6 +1713,61 @@ Follow this strict 12-step execution sequence:
                 pros = listOf("Schemaless flexibility for rapid prototyping", "Native JSON document nesting"),
                 cons = listOf("Lacks strict ACID relational foreign key enforcement")
             )
+        )
+    }
+
+
+    private fun buildDesignSystem(type: DomainType): DesignSystem {
+        return DesignSystem(
+            themeOverview = "Clean, highly legible interface focusing on content and speed.",
+            primaryColor = if (type == DomainType.FINTECH) "#00C853" else "#2962FF",
+            secondaryColor = "#FF3D00",
+            accentColor = "#00E5FF",
+            typography = listOf("Inter for UI", "Roboto Mono for Data"),
+            componentStyles = "Rounded corners (8dp), subtle drop shadows, solid color fills",
+            spacingGuidelines = "8dp baseline grid (8, 16, 24, 32, 64)"
+        )
+    }
+
+    private fun buildEnvironmentVariables(type: DomainType, stack: TechStack): List<EnvVarItem> {
+        val vars = mutableListOf(
+            EnvVarItem("DATABASE_URL", "Primary database connection string", "postgres://user:pass@host:5432/db", true),
+            EnvVarItem("JWT_SECRET", "HMAC key for JWT signing", "x8f9...d21", true),
+            EnvVarItem("PORT", "Server port", "8080", false),
+            EnvVarItem("API_KEY", "External API access", "ak_12345", true)
+        )
+        if (type == DomainType.AI_AGENT) {
+            vars.add(EnvVarItem("OPENAI_API_KEY", "LLM Access", "sk-...", true))
+        }
+        return vars
+    }
+
+    private fun buildIntegrations(type: DomainType): List<IntegrationItem> {
+        val ints = mutableListOf(
+            IntegrationItem("SendGrid", "NOTIFICATION", "Twilio", "Transactional emails for signup and alerts", listOf("Create API Key", "Verify Sender Domain", "Add to .env")),
+            IntegrationItem("Sentry", "ANALYTICS", "Sentry.io", "Error tracking and crash reporting", listOf("Create Project", "Add DSN to frontend/backend"))
+        )
+        if (type == DomainType.ECOMMERCE || type == DomainType.FINTECH) {
+            ints.add(IntegrationItem("Stripe", "PAYMENT", "Stripe", "Process credit cards and subscriptions", listOf("Get Publishable Key", "Get Secret Key", "Setup Webhook Endpoint")))
+        }
+        return ints
+    }
+
+    private fun buildUserRoles(type: DomainType): List<UserRole> {
+        return listOf(
+            UserRole("Admin", "Full system access", listOf("manage_users", "view_financials", "system_config"), listOf("Maintain system health", "Monitor abuse")),
+            UserRole("Standard User", "Regular authenticated user", listOf("read_own_data", "write_own_data"), listOf("Achieve core tasks", "Manage profile"))
+        )
+    }
+
+    private fun buildAdminArchitecture(type: DomainType): AdminArchitecture {
+        return AdminArchitecture(
+            overview = "Secure internal portal for managing users and system metrics.",
+            panels = listOf(
+                AdminPanel("User Management", "View, ban, or elevate user accounts.", listOf("Search Users", "Reset Passwords", "Ban Accounts")),
+                AdminPanel("System Health", "Live metrics on server load and DB latency.", listOf("CPU Usage Graph", "Active Connections", "Error Logs"))
+            ),
+            dashboardMetrics = listOf("Total Active Users (24h)", "Revenue / Transactions (Today)", "System Error Rate (%)")
         )
     }
 }

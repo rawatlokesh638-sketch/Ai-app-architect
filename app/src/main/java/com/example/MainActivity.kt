@@ -121,40 +121,19 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // Global Generation Progress Modal
-                    if (uiState is UiState.Generating) {
-                        val step = (uiState as UiState.Generating).step
-                        Dialog(onDismissRequest = {}) {
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.9f)
-                                    .clip(RoundedCornerShape(16.dp)),
-                                color = MaterialTheme.colorScheme.surface,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    CircularProgressIndicator(
-                                        color = IndigoPrimary,
-                                        modifier = Modifier.size(48.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text(
-                                        text = "AI Architect at Work",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = step,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = CyanAccent,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
-                                }
-                            }
+                    // Global Generation Progress Overlay
+                    AnimatedVisibility(
+                        visible = uiState is UiState.Generating,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        val genState = uiState as? UiState.Generating
+                        if (genState != null) {
+                            com.example.ui.components.GenerationProgressOverlay(
+                                step = genState.step,
+                                progress = genState.progress,
+                                onDismiss = { viewModel.clearUiState() }
+                            )
                         }
                     }
                 }

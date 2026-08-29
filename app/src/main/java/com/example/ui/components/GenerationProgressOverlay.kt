@@ -1,6 +1,7 @@
 package com.example.ui.components
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,15 +30,16 @@ fun GenerationProgressOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f)),
+            .background(Color.Black.copy(alpha = 0.4f)),
         contentAlignment = Alignment.Center
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.85f)
                 .clip(RoundedCornerShape(24.dp)),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+            tonalElevation = 12.dp,
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -94,6 +96,15 @@ fun GenerationProgressOverlay(
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
+                
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Dismiss Overlay", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
                     text = "This process involves multiple AI reasoning steps to ensure architecture consistency and production readiness.",

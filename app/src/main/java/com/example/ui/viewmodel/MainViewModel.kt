@@ -125,14 +125,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Seed default starter project if database is completely empty on first launch
+        // Backfill executive summary for existing projects if blank
         viewModelScope.launch {
             allProjects.take(1).collect { list ->
-                if (list.isEmpty()) {
-                    val defaultIdea = "Build a fitness app with AI workout plans, tracking and social sharing."
-                    generateNewProject(defaultIdea) {}
-                } else {
-                    // Backfill executive summary for existing projects if blank
+                if (list.isNotEmpty()) {
                     list.filter { it.executiveSummary.isBlank() }.forEach { project ->
                         launch {
                             val newSummary = GeminiSummaryGenerator.generateExecutiveSummary(project)
@@ -387,6 +383,74 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = UiState.Success("Project duplicated!")
             }
         }
+    }
+
+    fun generateFileCode(filePath: String) {
+        val project = _currentProject.value ?: return
+        viewModelScope.launch {
+            _uiState.value = UiState.Generating("AI Engineer writing code for $filePath...")
+            val code = repository.generateFileCode(project.id, filePath)
+            val updated = repository.updateFileContent(project.id, filePath, code)
+            if (updated != null) {
+                _currentProject.value = updated
+                _uiState.value = UiState.Success("Code generated for $filePath")
+            } else {
+                _uiState.value = UiState.Error("Failed to update file content.")
+            }
+        }
+    }
+
+    fun runBuildSimulation() {
+        val project = _currentProject.value ?: return
+        viewModelScope.launch {
+            _uiState.value = UiState.Generating("Simulating build, lint, and test cycles...")
+            val updated = repository.runBuildSimulation(project.id)
+            if (updated != null) {
+                _currentProject.value = updated
+                _uiState.value = UiState.Success("Build cycle complete!")
+            } else {
+                _uiState.value = UiState.Error("Build simulation failed.")
+            }
+        }
+    }
+
+    fun createSnapshot(reason: String) {
+        val project = _currentProject.value ?: return
+        viewModelScope.launch {
+            val updated = repository.createSnapshot(project.id, reason)
+            if (updated != null) {
+                _currentProject.value = updated
+            }
+        }
+    }
+
+    fun restoreSnapshot(snapshotId: String) {
+        val project = _currentProject.value ?: return
+        viewModelScope.launch {
+            _uiState.value = UiState.Generating("Restoring project snapshot...")
+            val restored = repository.restoreSnapshot(project.id, snapshotId)
+            if (restored != null) {
+                _currentProject.value = restored
+                _uiState.value = UiState.Success("Project restored!")
+            } else {
+                _uiState.value = UiState.Error("Snapshot restoration failed.")
+            }
+        }
+    }
+
+    fun updateFileContent(filePath: String, content: String) {
+        val project = _currentProject.value ?: return
+        viewModelScope.launch {
+            val updated = repository.updateFileContent(project.id, filePath, content)
+            if (updated != null) {
+                _currentProject.value = updated
+                _uiState.value = UiState.Success("File saved.")
+            }
+        }
+    }
+
+    fun improveApp() {
+        sendChatMessage("Deeply analyze this project and improve the overall architecture, UX consistency, and production readiness. Add missing features that would make this product successful.")
     }
 
     fun deleteProject(projectId: String, onDeleted: () -> Unit) {
