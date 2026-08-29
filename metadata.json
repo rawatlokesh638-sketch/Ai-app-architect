@@ -1,0 +1,6 @@
+{
+  "name": "AI Software Factory",
+  "description": "The ultimate AI software development workspace. Describe, architect, design, build, and ship complete software systems.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
