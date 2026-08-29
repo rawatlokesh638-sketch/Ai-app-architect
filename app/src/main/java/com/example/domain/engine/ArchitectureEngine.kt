@@ -43,6 +43,10 @@ object ArchitectureEngine {
 
         // 7. System Architecture & Visual Diagram Layers
         val systemArch = buildSystemArchitecture(archetype, techStack)
+        val roadmap = buildDefaultRoadmap(archetype)
+        val health = buildProjectHealth(archetype)
+        val requirements = buildProjectRequirements(archetype, cleanIdea)
+        val costComplexity = buildCostComplexityReport(archetype)
         val designSystem = buildDesignSystem(archetype)
         val envVars = buildEnvironmentVariables(archetype, techStack)
         val integrations = buildIntegrations(archetype)
@@ -114,6 +118,10 @@ object ArchitectureEngine {
             uxArchitecture = uxArch,
             techStack = techStack,
             systemArchitecture = systemArch,
+            projectRoadmap = roadmap,
+            projectHealth = health,
+            requirements = requirements,
+            costComplexity = costComplexity,
             databaseSchema = dbSchema,
             designSystem = designSystem,
             environmentVariables = envVars,
@@ -1768,6 +1776,53 @@ Follow this strict 12-step execution sequence:
                 AdminPanel("System Health", "Live metrics on server load and DB latency.", listOf("CPU Usage Graph", "Active Connections", "Error Logs"))
             ),
             dashboardMetrics = listOf("Total Active Users (24h)", "Revenue / Transactions (Today)", "System Error Rate (%)")
+        )
+    }
+
+
+    private fun buildProjectRequirements(type: DomainType, rawIdea: String): ProjectRequirements {
+        return ProjectRequirements(
+            functional = listOf("User Registration and Authentication", "Role-based access control", "Core CRUD operations for main entities"),
+            nonFunctional = listOf("99.9% Uptime SLA", "Sub-200ms API response times", "GDPR compliance"),
+            productGoals = listOf("Achieve seamless user onboarding", "Minimize cognitive load through intuitive UX"),
+            constraints = listOf("Must operate within strict mobile data limits", "Requires backward compatibility for legacy APIs"),
+            mvpScope = listOf("Core user flow", "Basic reporting", "Email notifications"),
+            futureScope = listOf("AI-driven analytics", "Third-party integrations (Zapier)", "Advanced multi-tenant support")
+        )
+    }
+
+    private fun buildCostComplexityReport(type: DomainType): CostComplexityReport {
+        return CostComplexityReport(
+            complexityLevel = "HIGH",
+            developmentEstimation = "Requires 4-6 weeks for MVP (2 backend, 2 frontend engineers)",
+            infrastructureConsiderations = listOf("Autoscaling Kubernetes clusters needed for traffic spikes", "Multi-region database replication"),
+            thirdPartyCosts = listOf("$20/mo per active seat for Auth provider", "Estimated $150/mo for Managed PostgreSQL", "S3 Storage costs (variable)")
+        )
+    }
+
+
+    private fun buildDefaultRoadmap(type: DomainType): ProjectRoadmap {
+        return ProjectRoadmap(
+            now = listOf(RoadmapItem("MVP Release", "Core user flow and database schema", "P0", "1 month")),
+            next = listOf(RoadmapItem("Payments Integration", "Stripe integration for subscriptions", "P1", "2 weeks")),
+            later = listOf(RoadmapItem("Analytics Dashboard", "Admin metrics and user behavior tracking", "P2", "1 month")),
+            experimental = listOf(RoadmapItem("AI Recommendations", "Personalized feed based on user history", "P3", "TBD"))
+        )
+    }
+
+
+    private fun buildProjectHealth(type: DomainType): ProjectHealth {
+        return ProjectHealth(
+            architectureScore = 95,
+            uiUxScore = 90,
+            codeQualityScore = 100, // Not written yet, but structurally sound
+            securityScore = 85,
+            performanceScore = 92,
+            accessibilityScore = 88,
+            testingScore = 80,
+            scalabilityScore = 90,
+            productionReadinessScore = 75,
+            overallScore = 89
         )
     }
 }
